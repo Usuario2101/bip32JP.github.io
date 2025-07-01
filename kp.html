@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scraper</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    label, input, button {
+      font-size: 1rem;
+      margin-right: 0.5rem;
+    }
+    #results {
+      margin-top: 1rem;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <label for="limit">How many recent entries:</label>
+  <input type="number" id="limit" value="5" min="1" max="100" />
+  <button id="fetchButton">Fetch</button>
+
+  <div id="results"></div>
+
+  <script>
+    const BASE_URL = atob('aHR0cHM6Ly93d3cua2FucG8uZ28uanA=');
+    const KEYWORD = '\u5e30\u5316';
+
+    const CPRX = atob('aHR0cHM6Ly9jb3JzcHJveHkuaW8vPw==');
+
+    const fetchHTML = async (url) => {
+      const res = await fetch(CPRX + encodeURIComponent(url));
+      const text = await res.text();
+      return new DOMParser().parseFromString(text, 'text/html');
+    };
+
+    async function getLatestUrls(limit) {
+      const doc = await fetchHTML(BASE_URL);
+      const anchors = doc.querySelectorAll('dl dt a');
+      const urls = [];
+
+      for (let i = 0; i < Math.min(limit, anchors.length); i++) {
+        const href = anchors[i].getAttribute('href');
+        if (href && !href.includes('//')) {
+          urls.push(new URL(href, BASE_URL).href);
+        }
+      }
+
+      return urls;
+    }
+
+    async function findEntry(url) {
+      const doc = await fetchHTML(url);
+      const anchors = doc.querySelectorAll('a');
+
+      for (const a of anchors) {
+        if (a.textContent.includes(KEYWORD)) {
+          const href = a.getAttribute('href');
+          if (href) {
+            return new URL(href, url).href;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function fetchData() {
+      const limit = parseInt(document.getElementById('limit').value);
+      const results = document.getElementById('results');
+      results.textContent = 'Loading...';
+
+      const urls = await getLatestUrls(limit);
+      const length = urls.length;
+      let current = 0;
+
+      const printStatus = () => {
+        results.textContent = `Loading... ${current}/${length}`;
+      }
+      const matchPromises = [];
+      for (const url of urls) {
+        matchPromises.push(findEntry(url).then(match => {
+            current++;
+            printStatus();
+            return { url, match }
+        }));
+        await delay(100); // 100ms delay between requests
+      }
+      const checks = await Promise.all(matchPromises);
+
+      const lines = [];
+      let firstMatch = null;
+
+      for (const [i, { url, match }] of checks.entries()) {
+        if (match) {
+          lines.push(`<a href="${url}" target="_blank">${url}</a> → <a href="${match}" target="_blank">${match}</a><br><br>`);
+          if (i === 0) firstMatch = match;
+        } else {
+          lines.push(`<a href="${url}" target="_blank">${url}</a> → No Entry<br><br>`);
+        }
+      }
+
+      results.innerHTML = lines.join('\n');
+
+      if (firstMatch) {
+        window.open(firstMatch, '_blank');
+      }
+    }
+
+    document.getElementById('fetchButton').addEventListener('click', fetchData);
+  </script>
+</body>
+</html>
