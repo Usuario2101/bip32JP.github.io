@@ -21,8 +21,9 @@
 </head>
 <body>
   <label for="limit">How many recent entries:</label>
-  <input type="number" id="limit" value="5" min="1" max="100" />
-  <button id="fetchButton">Fetch</button>
+  <input type="number" id="limit" value="1" min="1" max="100" /><br>
+  Auto-open latest: <input type="checkbox" id="autoopen" /><br>
+  <button id="fetchButton">Fetch</button><br>
 
   <div id="results"></div>
 
@@ -75,6 +76,7 @@
 
     async function fetchData() {
       const limit = parseInt(document.getElementById('limit').value);
+      const autoOpen = document.getElementById('autoopen').checked;
       const results = document.getElementById('results');
       results.textContent = 'Loading...';
 
@@ -110,7 +112,7 @@
 
       results.innerHTML = lines.join('\n');
 
-      if (firstMatch) {
+      if (firstMatch && autoOpen) {
         window.open(firstMatch, '_blank');
       }
     }
